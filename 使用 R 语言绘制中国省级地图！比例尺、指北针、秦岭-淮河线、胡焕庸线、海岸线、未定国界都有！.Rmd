@@ -1,0 +1,532 @@
+---
+title: "使用 R 语言绘制中国省级地图！比例尺、指北针、秦岭-淮河线、胡焕庸线、海岸线、未定国界都有！"
+author: "微信公众号 RStata"
+date: "`r Sys.Date()`"
+output:
+  tidyfridoc::html_pretty:
+    theme: hpstr
+    highlight: github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      dpi = 400,
+                      warning = FALSE,
+                      message = FALSE,
+                      out.width = "100%",
+                      out.height = "500px",
+                      fig.align = 'center',
+                      fig.width = 10,
+                      fig.height = 8,
+                      comment = "#>")
+```
+
+> 注意里面的 cnfont 是我在 Profile 里面配置的字体，可以参考平台上的系列课程「R语言数据科学」第一课进行配置或者删除相关参数。
+
+之前在公众号分享过使用 Stata 绘制中国省级、市级和区县地图的方法：
+
+1. [使用 Stata 绘制中国省级地图！比例尺、指北针、秦岭-淮河线、胡焕庸线、海岸线、未定国界都有！](https://mp.weixin.qq.com/s/IU-YZfibhj8_ogo9PE9sPw)
+2. [中国市级地图！Stata 也可以画！点击领取免费数据和使用方法视频讲解！](https://mp.weixin.qq.com/s/X6lQ5zy0L0XplLsNw9sT6A)
+3. [区县地图！Stata 也可以绘制这么漂亮的地图！免费分享给大家！](https://mp.weixin.qq.com/s/-8sa2bgx76XWq75WCtzqVw)
+
+很多小伙伴想学习如何使用 R 语言绘制类似的图表，所以就打算推出类似的三个 R 语言的课程。明晚的直播课将会讲解如何使用 R 语言绘制中国省级地图。
+
+为了让大家更好的掌握使用 R 语言绘制中国省级行政区划地图的方法，我们设计了如下案例：
+
+> 虽然现在是 2021 年了，但是考虑到大多数经济数据还只到 2019 年，所以提供的数据仍是 2019 年的版本。
+
+## 2019 年中国省级行政区划
+
+代码虽然看起来很复杂，实际上在使用的时候直接改改就能用了：
+
+```{r}
+library(tidyverse)
+library(sf)
+library(ggspatial)
+library(hrbrthemes)
+# 设定 ggplot2 绘图主题
+theme_set(
+  theme_ipsum(base_family = cnfont) + 
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          panel.grid.major = element_blank())
+)
+```
+
+> 下面所有的地图数据的坐标参考系都是“+proj=lcc +lat_1=30 +lat_2=62 +lat_0=0 +lon_0=105 +x_0=0 +y_0=0 +ellps=krass +units=m +no_defs”
+
+```{r}
+# 读取我事先设计好的三个数据：
+read_rds("省份.rds") %>% 
+  st_simplify(dTolerance = 2000) -> prov
+
+read_rds("线条.rds") %>% 
+  st_simplify(dTolerance = 2000) -> line
+
+read_rds("标签.rds") -> label
+```
+
+> 颜色的选择可以使用这个网站：https://tidyfriday.cn/colors
+
+```{r}
+ggplot() + 
+  geom_sf(data = prov, aes(fill = 类型),
+          color = "white", size = 0.1) + 
+  geom_sf(data = line, aes(color = name, 
+                           size = name),
+          fill = NA) + 
+  scale_fill_manual(
+    name = "",
+    values = c("不统计" = "#fed439",
+               "特别行政区" = "#709ae1",
+               "直辖市" = "#8a9197",
+               "省" = "#d2af81",
+               "自治区" = "#fd7446")
+  ) + 
+  scale_color_manual(
+    name = "", 
+    values = c("国界线" = "black",
+               "海岸线" = "#0055AA",
+               "秦岭-淮河线" = "#18BC9C",
+               "小地图框格" = "black",
+               "胡焕庸线" = "#E31A1C",
+               "区域线-不统计" = "gray",
+               "区域线-东北部" = "gray",
+               "区域线-东部" = "gray",
+               "区域线-西部" = "gray",
+               "区域线-中部" = "gray")
+  ) + 
+  scale_size_manual(
+    name = "",
+    values = c("国界线" = 0.5,
+               "海岸线" = 0.5,
+               "秦岭-淮河线" = 0.8,
+               "小地图框格" = 0.5,
+               "胡焕庸线" = 0.8,
+               "区域线-不统计" = 0.1,
+               "区域线-东北部" = 0.1,
+               "区域线-东部" = 0.1,
+               "区域线-西部" = 0.1,
+               "区域线-中部" = 0.1)
+  ) + 
+  geom_text(data = label, aes(x = X, y = Y,
+                              label = cname),
+            family = cnfont) + 
+  annotation_scale(location = "bl", 
+                   width_hint = 0.3, 
+                   text_family = cnfont) +
+  annotation_north_arrow(
+    location = "tr", 
+    which_north = "false",
+    pad_x = unit(0.75, "cm"),
+    pad_y = unit(0.5, "cm"),
+    style = north_arrow_fancy_orienteering(
+      text_family = cnfont
+    )
+  ) +
+  labs(title = "使用 R 语言绘制 2019 年中国省级行政区划",
+       subtitle = "绘制：微信公众号 RStata",
+       caption = "注意：该图表是使用提前设计好的数据绘制的，无法更改坐标参考系")
+```
+
+为了方便大家使用，我们贴心的添加了秦岭-淮河线、国界线、海岸线、胡焕庸线、比例尺和指北针。另外特别容易忽略的一点就是未定国界（新疆的左上角）：
+
+![](https://mdniceczx.oss-cn-beijing.aliyuncs.com/image_20210710183459.png)
+
+## 英文版本
+
+把所有的中文标签都替换成英语的就可以得到一副英文地图了（下图的英文都是使用百度翻译的）：
+
+```{r}
+ggplot() + 
+  geom_sf(data = prov, mapping = aes(fill = 类型), color = "white", size = 0.1) + 
+  geom_sf(data = line, aes(color = name,
+                           size = name)) + 
+  scale_color_manual(
+    name = "",
+    values = c("国界线" = "black", 
+               "海岸线" = "lightblue", 
+               "秦岭-淮河线" = "#c40003",
+               "小地图框格" = "black", 
+               "胡焕庸线" = "#00c19b", 
+               "区域线-不统计" = "gray", 
+               "区域线-东北部" = "gray", 
+               "区域线-东部" = "gray", 
+               "区域线-西部" = "gray", 
+               "区域线-中部" = "gray"),
+    labels = c("国界线" = "National boundary", "海岸线" = "Coastline",
+               "秦岭-淮河线"= "Qinling Huaihe line", "小地图框格" = "Small map frame",
+               "胡焕庸线" = "Hu Huanyong line", "区域线-不统计" = "Regional line - Not within the scope of statistics",
+               "区域线-东北部" = "Regional line - northeast", "区域线-东部"= "Regional Line - East", 
+               "区域线-西部" = "Regional line - West", "区域线-中部" = "Regional line - Middle")
+  ) + 
+  scale_size_manual(
+    name = "",
+    values = c("国界线" = 0.5, 
+               "海岸线" = 0.5, 
+               "秦岭-淮河线" = 1,
+               "小地图框格" = 0.5, 
+               "胡焕庸线" = 1, 
+               "区域线-不统计" = 0.1, 
+               "区域线-东北部" = 0.1, 
+               "区域线-东部" = 0.1, 
+               "区域线-西部" = 0.1, 
+               "区域线-中部" = 0.1),
+    labels = c("国界线" = "National boundary", "海岸线" = "Coastline",
+               "秦岭-淮河线"= "Qinling Huaihe line", "小地图框格" = "Small map frame",
+               "胡焕庸线" = "Hu Huanyong line", "区域线-不统计" = "Regional line - Not within the scope of statistics",
+               "区域线-东北部" = "Regional line - northeast", "区域线-东部"= "Regional Line - East", 
+               "区域线-西部" = "Regional line - West", "区域线-中部" = "Regional line - Middle")
+  ) + 
+  scale_fill_manual(
+    name = "",
+    values = c("不统计" = "#fed439",
+               "特别行政区" = "#709ae1",
+               "直辖市" = "#8a9197",
+               "省" = "#d2af81",
+               "自治区" = "#fd7446"),
+    labels = c("不统计" = "Not within the scope of statistics",
+               "特别行政区" = "Special administrative region",
+               "直辖市" = "Municipality directly under\nthe Central Government",
+               "省" = "Province",
+               "自治区" = "Autonomous Region")
+  ) + 
+  geom_text(data = label, aes(x = X, y = Y,
+                              label = ename),
+            family = cnfont, size = 3) + 
+  labs(title = "Using R language to draw China's provincial map in 2019",
+       subtitle = "WeChat Subscription: RStata",
+       caption = "Note: the chart is drawn with the data designed in advance, and the coordinate reference system cannot be changed")
+```
+
+## 2020 年中国各省市地区生产总值
+
+我们通常绘制的地图有两大类：填充地图和描点地图，填充地图的又可以分为离散变量的填充和连续变量的填充，上面的 2019 年中国省级行政区划地图实际上就是离散变量的填充，下面是个连续变量填充的示例：2020 年中国各省市地区生产总值
+
+```{r}
+# 2020 年中国各省市地区生产总值
+read_csv('2020年中国各省市地区生产总值.csv') %>% 
+  mutate(省 = str_sub(省份, 1, 2)) -> df
+
+prov %>% 
+  mutate(省 = str_sub(省, 1, 2)) %>% 
+  left_join(df) -> df
+
+line %>% 
+  slice(1, 2, 4) -> line1
+
+ggplot() + 
+  geom_sf(data = df, aes(fill = 地区生产总值),
+          color = "white", size = 0.1) + 
+  geom_sf(data = line1, aes(color = name, 
+                           size = name),
+          fill = NA, show.legend = F) + 
+  scale_fill_gradientn(
+    name = c("地区生产总值（亿元）"),
+    breaks = c(0, 20000, 40000, 
+               60000, 80000, 100000), 
+    colors = c("#e0f2f1", "#b2dfdb", 
+               "#80cbc4", "#4db6ac", 
+               "#26a69a", "#009688")
+  ) +
+  scale_color_manual(
+    name = "", 
+    values = c("国界线" = "black",
+               "海岸线" = "#0055AA",
+               "小地图框格" = "black")
+  ) + 
+  scale_size_manual(
+    name = "",
+    values = c("国界线" = 0.5,
+               "海岸线" = 0.5,
+               "小地图框格" = 0.5)
+  ) + 
+  geom_text(data = label, aes(x = X, y = Y,
+                              label = cname),
+            family = cnfont) + 
+  annotation_scale(location = "bl", 
+                   width_hint = 0.3, 
+                   text_family = cnfont) +
+  annotation_north_arrow(
+    location = "tr", 
+    which_north = "false",
+    pad_x = unit(0.75, "cm"),
+    pad_y = unit(0.5, "cm"),
+    style = north_arrow_fancy_orienteering(
+      text_family = cnfont
+    )
+  ) +
+  labs(title = "2020 年中国各省市地区生产总值",
+       subtitle = "绘制：微信公众号 RStata",
+       caption = "数据来源：各地统计局") + 
+  theme(legend.position = c(0.1, 0.2),
+        legend.key.size = unit(0.5, "cm"),
+        legend.title = element_text(size = 10))
+```
+
+## 2013 年中国工企业分布及距离秦岭淮河的距离
+
+描点地图也就是在地图上添加一个个坐标点，例如我们在地图上展示 2013 年中国工企业分布及距离秦岭淮河的距离：
+
+```{r}
+# 2013 年中国工企业分布及距离秦岭淮河的距离
+haven::read_dta('gq2013sample.dta') %>% 
+  st_as_sf(coords = c("经度", "纬度"), crs = 4326) %>% 
+  st_transform(st_crs(prov)) -> df1
+
+ggplot() + 
+  geom_sf(data = prov, 
+          color = "black", size = 0.1,
+          fill = NA) + 
+  geom_sf(data = slice(line, 1, 4), color = "black",
+          size = 0.5) + 
+  geom_sf(data = slice(line, 2), color = "lightblue",
+          size = 0.5) + 
+  geom_sf(data = slice(line, 3), color = "blue",
+          size = 1) + 
+  geom_sf(data = df1, aes(size = 与秦岭淮河线的距离,
+                          color = 北方或南方),
+          alpha = 0.6) + 
+  scale_color_manual(
+    name = "", 
+    values = c("秦岭淮河以北" = "#E31A1C",
+               "秦岭淮河以南" = "#18BC9C")
+  ) + 
+  scale_size_continuous(
+    name = "与秦岭淮河线的距离(km)",
+    breaks = c(0, 400, 800, 1200, 1600, 1800, 2000),
+    range = c(0.01, 4)
+  ) + 
+  geom_text(data = subset(label, cname == "南海诸岛"),
+            aes(x = X, y = Y, label = cname),
+            family = cnfont) + 
+  annotation_scale(location = "bl", 
+                   width_hint = 0.3, 
+                   text_family = cnfont) +
+  annotation_north_arrow(
+    location = "tr", 
+    which_north = "false",
+    pad_x = unit(0.75, "cm"),
+    pad_y = unit(0.5, "cm"),
+    style = north_arrow_fancy_orienteering(
+      text_family = cnfont
+    )
+  ) +
+  labs(title = "2013 年中国工业企业与秦岭-淮河线的距离",
+       subtitle = "绘制：微信公众号 RStata",
+       caption = "数据来源：2013 年中国工业企业数据库，使用高德地图地理编码接口解析经纬度") + 
+  theme(legend.key.size = unit(0.5, "cm"),
+        legend.title = element_text(size = 10))
+```
+
+这里用颜色表示南北方的工企业、散点的大小表示与秦岭淮河线的距离。
+
+## 2019 年中国各省地区生产总值 & 产业结构
+
+填充地图通常可以和饼图和柱形图结合来展示更多的信息，这种图的绘制通常是先绘制好每一个图再用拼图软件组合起来，不过使用 scatterpie 包可以很容易实现在地图上添加饼图：
+
+```{r}
+# 2019 年中国各省地区生产总值 & 产业结构
+library(scatterpie)
+library(ggnewscale)
+haven::read_dta('各省历年GDP.dta') %>% 
+  dplyr::filter(省份 != "中国") %>% 
+  mutate(地区生产总值 = 地区生产总值_亿元 / 1000) %>% 
+  dplyr::filter(年份 == 2019) %>% 
+  mutate(cname2 = str_sub(省份, 1, 2)) -> df2
+
+label %>% 
+  mutate(cname2 = str_sub(cname, 1, 2)) %>% 
+  left_join(df2) %>% 
+  dplyr::filter(!is.na(第一产业占GDP比重_百分比)) -> piedata
+
+prov %>% 
+  left_join(df2) -> df2
+
+ggplot() + 
+  geom_sf(data = df2, aes(fill = 地区生产总值),
+          size = 0.1, color = "white") + 
+  scale_fill_gradientn(
+    name = c("地区生产总值（千亿元）"),
+    breaks = c(0, 20, 40, 
+               60, 80, 100), 
+    colors = c("#e0f2f1", "#b2dfdb", 
+               "#80cbc4", "#4db6ac", 
+               "#26a69a", "#009688")
+  ) + 
+  new_scale_fill() + 
+  geom_sf(data = slice(line, 1, 4), color = "black",
+          size = 0.5) + 
+  geom_sf(data = slice(line, 2), color = "lightblue",
+          size = 0.3) + 
+  geom_scatterpie(data = piedata,
+                  aes(X, Y, group = cname),
+                  pie_scale = 1.5,
+                  cols = c("第一产业占GDP比重_百分比",
+                           "第二产业占GDP比重_百分比",
+                           "第三产业占GDP比重_百分比"),
+                  color = NA) + 
+  scale_fill_manual(values = c("#fed439", "#709ae1", "#d2af81"),
+                    labels = c("第一产业占比(%)",
+                               "第二产业占比(%)",
+                               "第三产业占比(%)"),
+                    name = "占GDP比重") + 
+  geom_text(data = subset(label, cname == "南海诸岛"),
+            aes(x = X, y = Y, label = cname),
+            family = cnfont) + 
+  annotation_scale(location = "bl", 
+                   width_hint = 0.3, 
+                   text_family = cnfont) +
+  annotation_north_arrow(
+    location = "tr", 
+    which_north = "false",
+    pad_x = unit(0.75, "cm"),
+    pad_y = unit(0.5, "cm"),
+    style = north_arrow_fancy_orienteering(
+      text_family = cnfont
+    )
+  ) +
+  labs(title = "2019 年中国各省地区生产总值 & 产业结构",
+       subtitle = "绘制：微信公众号 RStata",
+       caption = "数据来源：CSMAR经济金融数据库") + 
+  theme(legend.key.size = unit(0.5, "cm"),
+        legend.title = element_text(size = 10))
+```
+
+这里用饼图展示每个省份的一二三产业比重。
+
+柱形图的添加在 ggplot2 里面看起来似乎还没有特别好的方法。
+
+## 连续变量转换成分组变量
+
+连续变量可以通过分组转换成排序变量（也是离散变量），分组可以用 cut() 函数，不过不如 case_when() 函数简单明了：
+
+```{r}
+# 连续变量转换成分组变量
+df2 %>% 
+  mutate(group = case_when(
+    is.na(地区生产总值) ~ "数据缺失",
+    between(地区生产总值, 0, 40) ~ "< 40千亿",
+    between(地区生产总值, 40, 60) ~ "40～60千亿",
+    between(地区生产总值, 60, 80) ~ "60～80千亿",
+    between(地区生产总值, 80, 100) ~ "80～100千亿",
+    地区生产总值 > 100 ~ "> 100千亿",
+  )) %>% 
+  mutate(group = factor(
+    group, 
+    levels = c(
+      "数据缺失", "< 40千亿",
+      "40～60千亿", "60～80千亿",
+      "80～100千亿", "> 100千亿"
+    )
+  )) -> df3
+
+ggplot() + 
+  geom_sf(data = df3, aes(fill = group),
+          size = 0.1, color = "white") + 
+  scale_fill_manual(
+    name = "地区生产总值",
+    values = c(
+      "数据缺失" = "gray",
+      "< 40千亿" = "#b2dfdb",
+      "40～60千亿" = "#80cbc4",
+      "60～80千亿" = "#4db6ac",
+      "80～100千亿" = "#26a69a",
+      "> 100千亿" = "#009688"
+    )
+  ) + 
+  new_scale_fill() + 
+  geom_sf(data = slice(line, 1, 4), color = "black",
+          size = 0.5) + 
+  geom_sf(data = slice(line, 2), color = "lightblue",
+          size = 0.3) + 
+  geom_scatterpie(data = piedata,
+                  aes(X, Y, group = cname),
+                  pie_scale = 2.5,
+                  cols = c("第一产业占GDP比重_百分比",
+                           "第二产业占GDP比重_百分比",
+                           "第三产业占GDP比重_百分比"),
+                  color = NA) + 
+  scale_fill_manual(values = c("#fed439", "#709ae1", "#d2af81"),
+                    labels = c("第一产业占比(%)",
+                               "第二产业占比(%)",
+                               "第三产业占比(%)"),
+                    name = "占GDP比重") + 
+  geom_text(data = label, aes(x = X, y = Y,
+                              label = cname),
+            family = cnfont, size = 4) + 
+  annotation_scale(location = "bl", 
+                   width_hint = 0.3, 
+                   text_family = cnfont) +
+  annotation_north_arrow(
+    location = "tr", 
+    which_north = "false",
+    pad_x = unit(0.75, "cm"),
+    pad_y = unit(0.5, "cm"),
+    style = north_arrow_fancy_orienteering(
+      text_family = cnfont
+    )
+  ) +
+  labs(title = "2019 年中国各省地区生产总值 & 产业结构",
+       subtitle = "绘制：微信公众号 RStata",
+       caption = "数据来源：CSMAR经济金融数据库") + 
+  theme(legend.key.size = unit(0.5, "cm"),
+        legend.title = element_text(size = 10))
+```
+
+## 2015 年各省人口密度
+
+我们再来看一下胡焕庸线的使用：
+
+```{r}
+# 各省人口密度
+haven::read_dta('中国人口空间分布省级面板数据集.dta') %>% 
+  dplyr::filter(年份 == 2015) %>% 
+  rename(省 = 省份) %>% 
+  left_join(prov, .) -> df4
+
+ggplot() + 
+  geom_sf(data = df4, aes(fill = 均值),
+          size = 0.1, color = "white") + 
+  scale_fill_gradientn(
+    name = c("平均人口密度"),
+    breaks = c(0, 1000, 2000, 3000, 4000), 
+    colors = c("#e0f2f1", "#b2dfdb", 
+               "#80cbc4", "#4db6ac", 
+               "#26a69a", "#009688")
+  ) + 
+  geom_sf(data = slice(line, 1, 4), color = "black",
+          size = 0.5) + 
+  geom_sf(data = slice(line, 2), color = "lightblue",
+          size = 0.3) + 
+  geom_sf(data = slice(line, 5), color = "#E31A1C",
+          size = 1) + 
+  geom_text(data = label, aes(x = X, y = Y,
+                              label = cname),
+            family = cnfont, size = 4) + 
+  annotation_scale(location = "bl", 
+                   width_hint = 0.3, 
+                   text_family = cnfont) +
+  annotation_north_arrow(
+    location = "tr", 
+    which_north = "false",
+    pad_x = unit(0.75, "cm"),
+    pad_y = unit(0.5, "cm"),
+    style = north_arrow_fancy_orienteering(
+      text_family = cnfont
+    )
+  ) +
+  labs(title = "2015 年中国各省平均人口密度",
+       subtitle = "绘制：微信公众号 RStata",
+       caption = "数据来源：中国科学院资源环境科学与数据中心") + 
+  theme(legend.key.size = unit(0.5, "cm"),
+        legend.title = element_text(size = 10))
+```
+
+代码看起来很复杂，但是实际上改改就能用了！不用害怕！
+
+---
+
+<h5 align="center">©微信公众号 RStata</h5>
